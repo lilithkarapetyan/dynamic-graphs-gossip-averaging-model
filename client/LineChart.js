@@ -22,7 +22,7 @@ function drawLineChart({ data, containerId, xAxis, yAxis, title }) {
         .call(d3.axisBottom(x));
 
     const y = d3.scaleLinear()
-        .domain([Math.min(...(data.map(item => item[yAxis]))), Math.max(...(data.map(item => item[yAxis]))) + 10])
+        .domain([0, Math.max(...(data.map(item => item[yAxis]))) + 10])
         .range([height, 0]);
     svg.append("g")
         .call(d3.axisLeft(y));
@@ -31,6 +31,7 @@ function drawLineChart({ data, containerId, xAxis, yAxis, title }) {
       .attr("y", margin.top / 2)
       .attr("text-anchor", "middle")
       .style("font-size", "12px")
+      .attr("stroke", '#ff05fd')
       .text(title ? `${title}` : `${xAxis} X ${yAxis}`);
 
     const bisect = d3.bisector(function (d) { return d[xAxis]; }).left;
@@ -38,8 +39,8 @@ function drawLineChart({ data, containerId, xAxis, yAxis, title }) {
     const focus = svg
         .append('g')
         .append('circle')
-        .style("fill", "black")
-        .attr("stroke", "black")
+        .style("fill", "#ff05fd")
+        .attr("stroke", "#ff05fd")
         .attr('r', 2)
         .style("opacity", 0)
 

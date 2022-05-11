@@ -69,17 +69,14 @@ function ForceGraph({
     .attr("style", "max-width: 100%; height: auto; height: intrinsic;");
 
   link = svg.append("g")
-    .attr("stroke", linkStroke)
-    .attr("stroke-opacity", linkStrokeOpacity)
-    .attr("stroke-width", typeof linkStrokeWidth !== "function" ? linkStrokeWidth : null)
+    .attr("stroke", '#ff05fd')
+    .attr("stroke-opacity", 0.1)
+    .attr("stroke-width", 4)
     .attr("stroke-linecap", linkStrokeLinecap)
     .selectAll("line")
     .data(links)
-    .attr('stroke', d => {
-      console.log(d)
-      return linkStroke;
-    })
-    .join("line");
+    .join("line")
+    .attr("id", d => `link-${d.source.id}-${d.target.id}`)
 
   if (W) link.attr("stroke-width", ({index: i}) => W[i]);
 
@@ -90,19 +87,14 @@ function ForceGraph({
     .join("g")
     .append('text')
     .text(({index: i}) => T[i])
-    .attr('font-size', 10)
-    .attr('stroke', 'black')
+    .attr('font-size', 12)
+    .attr('stroke', '#ff05fd')
     .attr('cursor', 'pointer')
-
-    // .append('circle')
-    // .attr("r", nodeRadius)
     .attr("id", ({index: i}) => `node-${i}`)
-
 
 
   withDrag && node.call(drag(simulation));
 
-  // if (G) node.attr("fill", ({index: i}) => color(G[i]));
   if (T) node.append("title").text(({index: i}) => T[i]);
 
   // Handle invalidation.
@@ -154,11 +146,12 @@ function ForceGraph({
       links = links.map(d => Object.assign({}, d));
       const T = nodeTitle == null ? null : d3.map(nodes, nodeTitle);
       node.text(({index: i}) =>  T[i])
-        .attr('stroke', 'black');
+        .attr('stroke', '#ff05fd');
 
       link = link
         .data(links, d => [d.source, d.target])
-        .join("line");
+        .join("line")
+        .attr("id", d => `link-${d.source}-${d.target}`);
 
       simulation.nodes(nodes);
       simulation.force("link").links(links);

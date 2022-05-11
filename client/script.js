@@ -9,8 +9,6 @@ const pauseText = 'Pause';
 const BASE_URL = 'http://localhost:3000';
 const distributionsData = {
   info: [],
-  prevUnicastVertices: 0,
-  prevBroadcastVertices: 0,
 };
 
 function calculateIsolationPercentage(graph) {
@@ -95,7 +93,6 @@ function drawGraph(newSnapshots, initialSnapshotIndex = 0) {
     }
 
     vertices = vertexSnapshots[snapshotIndex];
-        // console.log(vertexSnapshots[snapshotIndex])
     chart.update({
       nodeTitle: d => {
         return vertexSnapshots[snapshotIndex][d.index].value.toFixed(2)
@@ -106,19 +103,9 @@ function drawGraph(newSnapshots, initialSnapshotIndex = 0) {
     document.getElementById("snapshotId").innerHTML = `${snapshotIndex}`;
     document.getElementById("isolationPercentage").innerText = `${calculateIsolationPercentage(snapshots[snapshotIndex]).toFixed(2)}%`;
 
-    const isUnicast = document.getElementById('unicastSwitcher').checked;
-    vertices.forEach(vertex => {
-      document.getElementById(`node-${vertex.id}`).setAttribute('fill', (
-        isUnicast ? (vertex.hasUnicastInfo ? '#fed683' : 'black') : (vertex.hasBroadcastInfo ? '#f6d1df' : 'black')
-      ));
-      // document.getElementById(`node-${vertex.id}`).setAttribute('stroke', (
-        // isUnicast ? (!!vertex.unicastTimer ? '#67a2d8' : '#c4c4c4') : (!!vertex.broadcastTimer ? '#67a2d8' : '#c4c4c4')
-      // ));
-    })
-
+    drawStats();
     snapshotIndex++;
     lastSnapshotIndex = snapshotIndex;
-    drawStats();
 
   }
   a()
@@ -127,10 +114,6 @@ function drawGraph(newSnapshots, initialSnapshotIndex = 0) {
 
 function clearGraph() {
   clearInterval(drawInterval);
-  document.getElementById('connectedRoundsUnicast').innerText = '-'
-  document.getElementById('connectedRoundsBroadcast').innerText = '-'
-  document.getElementById('hadInfoRoundsBroadcast').innerText = '-'
-  document.getElementById('hadInfoRoundsUnicast').innerText = '-'
   document.getElementById('scene').innerHTML = '';
 }
 
@@ -143,19 +126,6 @@ function setLoading(isShowing) {
     loading.classList.add('hidden');
     loading.classList.remove('visible');
   }
-}
-
-function downloadInformed() {
-  const element = document.createElement('a');
-  element.setAttribute('href', generateStatsCSV());
-  element.setAttribute('download', `informed_vertices_${document.getElementById('graphName').innerText}.csv`);
-
-  element.style.display = 'none';
-  document.body.appendChild(element);
-
-  element.click();
-
-  document.body.removeChild(element);
 }
 
 function uploadFile() {
@@ -210,54 +180,16 @@ function pause() {
 }
 
 function drawStats() {
-  document.getElementById('linechart-broadcast').innerHTML = '';
-  document.getElementById('linechart-unicast').innerHTML = '';
-  document.getElementById('linechart-isolated').innerHTML = '';
-  document.getElementById('linechart-edges').innerHTML = '';
 
-  const transformedData = distributionsData.info.map(each => {
-    const [index, broadcastSingle, broadcast, unicastSingle, unicast, isolated, edges, broadcastSingleAll, unicastSingleAll] = each;
-    return {
-      index,
-      broadcastSingle,
-      broadcastSingleAll,
-      unicastSingle,
-      unicastSingleAll,
-      broadcast,
-      unicast,
-      isolated,
-      edges,
-    }
+  const data = distributionsData.info[lastSnapshotIndex];
+  if(!data) return
+  document.getElementById('distribution').innerHTML=''
+  drawLineChart({
+    data: data,
+    containerId: 'distribution',
+    xAxis: 'id',
+    yAxis: 'value'
   })
-  //
-  // drawLineChart({
-  //   data: transformedData,
-  //   containerId: 'linechart-broadcast',
-  //   xAxis: 'index',
-  //   yAxis: 'broadcastSingle',
-  //   title: 'hasBroadcastInfo PMF'
-  // })
-  // drawLineChart({
-  //   data: transformedData,
-  //   containerId: 'linechart-unicast',
-  //   xAxis: 'index',
-  //   yAxis: 'unicastSingle',
-  //   title: 'hasUnicastInfo PMF'
-  // })
-  // drawLineChart({
-  //   data: transformedData,
-  //   containerId: 'linechart-broadcast',
-  //   xAxis: 'index',
-  //   yAxis: 'broadcast',
-  //   title: 'hasBroadCastInfo CDF'
-  // })
-  // drawLineChart({
-  //   data: transformedData,
-  //   containerId: 'linechart-unicast',
-  //   xAxis: 'index',
-  //   yAxis: 'unicast',
-  //   title: 'hasUnicastInfo CDF'
-  // })
 }
 
 function drawAllVertexOriginatorStats(allVerticesData) {
@@ -346,18 +278,10 @@ function generateNewGraph() {
 function generateVertexSnapshots(startIndex = 0) {
   let infoMap = {};
   let infoQueue = [];
-  let castIndex = +localStorage.getItem('castIndex');
   let maxInfoGivingTime = +localStorage.getItem('maxInfoGivingTime');
   distributionsData.info = [];
-  distributionsData.prevUnicastVertices = 0;
-  distributionsData.prevBroadcastVertices = 0;
 
-  if(document.getElementById('castIndex').value) {
-    castIndex = +document.getElementById('castIndex').value;
-    localStorage.setItem('castIndex', `${castIndex}`);
-  }else {
-    document.getElementById('castIndex').value = castIndex;
-  }
+
   if(document.getElementById('maxInfoGivingTime').value) {
     maxInfoGivingTime = +document.getElementById('maxInfoGivingTime').value;
     localStorage.setItem('maxInfoGivingTime', `${maxInfoGivingTime}`);
@@ -374,23 +298,21 @@ function generateVertexSnapshots(startIndex = 0) {
     })
   ));
 
-  console.log(JSON.parse(JSON.stringify(infoSnapshots)))
+
   storedSnapshots.forEach((snapshot, index) => {
     const vertices = infoSnapshots[index];
 
     if (infoSnapshots[index - 1]) {
       vertices.forEach((vertex, vertexIndex) => {
         vertex.value = infoSnapshots[index - 1][vertexIndex].value;
-
-        // if(vertex.broadcastTimer > maxInfoGivingTime) {
-        //   vertex.hasBroadcastInfo = false;
-        // }
-        // if(vertex.unicastTimer > maxInfoGivingTime) {
-        //   vertex.hasUnicastInfo = false;
-        // }
       })
     }
+    else{
+      distributionsData.info.push(JSON.parse(JSON.stringify(vertices)));
+      return
+    }
 
+    distributionsData.info.push(JSON.parse(JSON.stringify(vertices)));
 
     snapshot.edges.forEach(edge => {
       if (!Object.values(infoMap).includes(edge.s) && !infoMap[edge.t]) {
@@ -399,42 +321,22 @@ function generateVertexSnapshots(startIndex = 0) {
     });
 
     Object.entries(infoMap).forEach(([vertex, infoGiveVertex]) => {
-      const val = (vertices[vertex].value + vertices[infoGiveVertex].value) / 2;
+      let val = (vertices[vertex].value + vertices[infoGiveVertex].value) / 2;
+      //
+      // if(Math.random() < 0.0001) {
+      //   val = 0;
+      // }
+
       vertices[infoGiveVertex].value = val;
       vertices[vertex].value = val;
     });
 
     snapshot.vertices.forEach(vertex => {
-      // if (vertices[vertex].hasBroadcastInfo) {
-      //   vertices[vertex].broadcastTimer++;
-      // }
       if (vertices[vertex].hasUnicastInfo) {
         vertices[vertex].unicastTimer++;
       }
     });
 
-    // const unicastVertices = vertices.reduce((acc, vertex) => acc + Number(!!vertex.hasUnicastInfo), 0);
-    // const broadcastVertices = vertices.reduce((acc, vertex) => acc + Number(!!vertex.hasBroadcastInfo), 0);
-
-    // const unicastVerticesAll = vertices.filter(vertex => vertex.unicastTimer !== 0).length;
-    // const broadcastVerticesAll = vertices.filter(vertex => vertex.broadcastTimer !== 0).length;
-
-    // if (unicastVerticesAll === vertices.length && document.getElementById('connectedRoundsUnicast').innerText === '-') {
-    //   document.getElementById('connectedRoundsUnicast').innerText = index;
-    // }
-    // if (broadcastVerticesAll === vertices.length && document.getElementById('connectedRoundsBroadcast').innerText === '-') {
-    //   document.getElementById('connectedRoundsBroadcast').innerText = index;
-    // }
-    // if (unicastVertices === vertices.length && document.getElementById('hadInfoRoundsUnicast').innerText === '-') {
-    //   document.getElementById('hadInfoRoundsUnicast').innerText = index + 1;
-    // }
-    // if (broadcastVertices === vertices.length && document.getElementById('hadInfoRoundsBroadcast').innerText === '-') {
-    //   document.getElementById('hadInfoRoundsBroadcast').innerText = index + 1;
-    // }
-
-    // distributionsData.info.push([distributionsData.info.length, broadcastVertices - distributionsData.prevBroadcastVertices, broadcastVertices, unicastVertices - distributionsData.prevUnicastVertices, unicastVertices, calculateIsolationPercentage(snapshot), snapshot.edges.length / Math.pow(snapshot.vertices.length, 2) * 100, broadcastVerticesAll, unicastVerticesAll]);
-    // distributionsData.prevUnicastVertices = unicastVertices;
-    // distributionsData.prevBroadcastVertices = broadcastVertices;
 
     infoMap = {};
     infoQueue = [];
@@ -481,139 +383,4 @@ function downloadCurrentGraph() {
 
       document.body.removeChild(element);
     })
-}
-
-function calculateRoundsFromAllVertices() {
-  const result = new Array(storedSnapshots[0].vertices.length).fill(1).map((_, index) => ({
-    broadcastInfo: -1,
-    unicastInfo: -1,
-    firstBroadcastInfoWithTimer: -1,
-    firstUnicastInfoWithTimer: -1,
-    originator: index,
-  }));
-
-  let originator = 0;
-  const calcInterval = setInterval(() => {
-    if(originator >= storedSnapshots[0].vertices.length) {
-      clearInterval(calcInterval);
-      drawAllVertexOriginatorStats(result);
-    }
-    const infoSnapshots = storedSnapshots.map(snapshot => (
-      snapshot.vertices.map((vertex, index) => ({
-        id: vertex,
-        hasUnicastInfo: index === originator,
-        hasBroadcastInfo: index === originator,
-        broadcastTimer: 0,
-        unicastTimer: 0,
-      }))
-    ));
-
-    storedSnapshots.forEach((snapshot, index) => {
-      let infoMap = {};
-      let infoQueue = [];
-      let castIndex = +localStorage.getItem('castIndex');
-      let maxInfoGivingTime = +localStorage.getItem('maxInfoGivingTime');
-      const vertices = infoSnapshots[index];
-
-      if (infoSnapshots[index - 1]) {
-        vertices.forEach((vertex, vertexIndex) => {
-          vertex.hasUnicastInfo = infoSnapshots[index - 1][vertexIndex].hasUnicastInfo;
-          vertex.unicastTimer = infoSnapshots[index - 1][vertexIndex].unicastTimer;
-          vertex.hasBroadcastInfo = infoSnapshots[index - 1][vertexIndex].hasBroadcastInfo;
-          vertex.broadcastTimer = infoSnapshots[index - 1][vertexIndex].broadcastTimer;
-
-
-          if(vertex.broadcastTimer > maxInfoGivingTime) {
-            vertex.hasBroadcastInfo = false;
-          }
-          if(vertex.unicastTimer > maxInfoGivingTime) {
-            vertex.hasUnicastInfo = false;
-          }
-        })
-      }
-
-      snapshot.edges.forEach(edge => {
-        if (
-          vertices[edge.s].hasBroadcastInfo &&
-          !vertices[edge.t].hasBroadcastInfo
-        ) {
-          infoQueue.push(edge.t);
-        }
-        if (
-          vertices[edge.t].hasBroadcastInfo &&
-          !vertices[edge.s].hasBroadcastInfo
-        ) {
-          infoQueue.push(edge.s);
-        }
-        if (
-          vertices[edge.t].hasUnicastInfo &&
-          !vertices[edge.s].hasUnicastInfo
-        ) {
-          if (!Object.values(infoMap).filter(value =>  value?.has(edge.s)).length) {
-            if(!infoMap[edge.t]){
-              infoMap[edge.t] = new Set();
-            }
-            if(infoMap[edge.t].size < castIndex) {
-              infoMap[edge.t].add(edge.s);
-            }
-          }
-        }
-        if (
-          vertices[edge.s].hasUnicastInfo &&
-          !vertices[edge.t].hasUnicastInfo
-        ) {
-          if (!Object.values(infoMap).filter(value => value.has(edge.t)).length) {
-            if(!infoMap[edge.s]){
-              infoMap[edge.s] = new Set();
-            }
-            if(infoMap[edge.s].size < castIndex) {
-              infoMap[edge.s].add(edge.t);
-            }
-          }
-        }
-      });
-
-      infoQueue.forEach(vertexIndex => {
-        vertices[vertexIndex].hasBroadcastInfo = true;
-        vertices[vertexIndex].broadcastTimer = 0;
-      });
-      Object.values(infoMap).forEach(vertexSet => vertexSet?.forEach(vertexIndex => {
-        vertices[vertexIndex].hasUnicastInfo = true;
-        vertices[vertexIndex].unicastTimer = 0;
-      }));
-
-      snapshot.vertices.forEach(vertex => {
-        if (vertices[vertex].hasBroadcastInfo) {
-          vertices[vertex].broadcastTimer++;
-        }
-        if (vertices[vertex].hasUnicastInfo) {
-          vertices[vertex].unicastTimer++;
-        }
-      });
-
-      const unicastVertices = vertices.reduce((acc, vertex) => acc + Number(!!vertex.hasUnicastInfo), 0);
-      const broadcastVertices = vertices.reduce((acc, vertex) => acc + Number(!!vertex.hasBroadcastInfo), 0);
-
-      const unicastVerticesAll = vertices.filter(vertex => vertex.unicastTimer !== 0).length;
-      // const broadcastVerticesAll = vertices.filter(vertex => vertex.broadcastTimer !== 0).length;
-
-      if (unicastVerticesAll === vertices.length && result[originator].unicastInfo === -1) {
-        result[originator].unicastInfo = index;
-      }
-      // if (broadcastVerticesAll === vertices.length && result[originator].broadcastInfo === -1) {
-      //   result[originator].broadcastInfo = index;
-      // }
-      if (unicastVertices === vertices.length && result[originator].firstUnicastInfoWithTimer === -1) {
-        result[originator].firstUnicastInfoWithTimer = index + 1;
-      }
-      if (broadcastVertices === vertices.length && result[originator].firstBroadcastInfoWithTimer === -1) {
-        result[originator].firstBroadcastInfoWithTimer = index + 1;
-      }
-
-      infoMap = {};
-      infoQueue = [];
-    })
-
-    originator++;
-  })
 }
