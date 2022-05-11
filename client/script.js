@@ -393,7 +393,7 @@ function generateVertexSnapshots(startIndex = 0) {
 
 
     snapshot.edges.forEach(edge => {
-      if (!values.includes(edge.s) && !infoMap[edge.t]) {
+      if (!Object.values(infoMap).includes(edge.s) && !infoMap[edge.t]) {
           infoMap[edge.t] = edge.s;
       }
     });

@@ -75,6 +75,10 @@ function ForceGraph({
     .attr("stroke-linecap", linkStrokeLinecap)
     .selectAll("line")
     .data(links)
+    .attr('stroke', d => {
+      console.log(d)
+      return linkStroke;
+    })
     .join("line");
 
   if (W) link.attr("stroke-width", ({index: i}) => W[i]);
