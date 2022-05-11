@@ -12,9 +12,9 @@ document.getElementById('unicastSwitcher').onchange = (event) => {
     document.getElementById(`node-${vertex.id}`).setAttribute('fill', (
       isUnicast ? (vertex.hasUnicastInfo ? '#fed683' : 'black') : (vertex.hasBroadcastInfo ? '#f6d1df' : 'black')
     ));
-    document.getElementById(`node-${vertex.id}`).setAttribute('stroke', (
-      isUnicast ? (!!vertex.unicastTimer ? '#67a2d8' : '#c4c4c4') : (!!vertex.broadcastTimer ? '#67a2d8' : '#c4c4c4')
-    ));
+    // document.getElementById(`node-${vertex.id}`).setAttribute('stroke', (
+    //   isUnicast ? (!!vertex.unicastTimer ? '#67a2d8' : '#c4c4c4') : (!!vertex.broadcastTimer ? '#67a2d8' : '#c4c4c4')
+    // ));
   });
 }
 

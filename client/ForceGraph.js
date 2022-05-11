@@ -4,32 +4,32 @@
 // Released under the ISC license.
 // https://observablehq.com/@d3/disjoint-force-directed-graph
 function ForceGraph({
-  nodes, // an iterable of node objects (typically [{id}, …])
-  links // an iterable of link objects (typically [{source, target}, …])
-}, {
-  nodeId = d => d.id, // given d in nodes, returns a unique identifier (string)
-  nodeGroup, // given d in nodes, returns an (ordinal) value for color
-  nodeGroups, // an array of ordinal values representing the node groups
-  nodeTitle, // given d in nodes, a title string
-  nodeFill = "currentColor", // node stroke fill (if not using a group color encoding)
-  nodeStroke = "#67a2d8", // node stroke color
-  nodeStrokeWidth = 1.5, // node stroke width, in pixels
-  nodeStrokeOpacity = 1, // node stroke opacity
-  nodeRadius = 8, // node radius, in pixels
-  nodeStrength,
-  linkSource = ({ source }) => source, // given d in links, returns a node identifier string
-  linkTarget = ({ target }) => target, // given d in links, returns a node identifier string
-  linkStroke = "#999", // link stroke color
-  linkStrokeOpacity = 0.6, // link stroke opacity
-  linkStrokeWidth = 1.5, // given d in links, returns a stroke width in pixels
-  linkStrokeLinecap = "round", // link stroke linecap
-  linkStrength,
-  colors = d3.schemeTableau10, // an array of color strings, for the node groups
-  width = 640, // outer width, in pixels
-  height = 400, // outer height, in pixels
-  invalidation, // when this promise resolves, stop the simulation,
-  withDrag
-} = {}) {
+                      nodes, // an iterable of node objects (typically [{id}, …])
+                      links // an iterable of link objects (typically [{source, target}, …])
+                    }, {
+                      nodeId = d => d.id, // given d in nodes, returns a unique identifier (string)
+                      nodeGroup, // given d in nodes, returns an (ordinal) value for color
+                      nodeGroups, // an array of ordinal values representing the node groups
+                      nodeTitle, // given d in nodes, a title string
+                      nodeFill = "currentColor", // node stroke fill (if not using a group color encoding)
+                      nodeStroke = "#67a2d8", // node stroke color
+                      nodeStrokeWidth = 1.5, // node stroke width, in pixels
+                      nodeStrokeOpacity = 1, // node stroke opacity
+                      nodeRadius = 8, // node radius, in pixels
+                      nodeStrength,
+                      linkSource = ({source}) => source, // given d in links, returns a node identifier string
+                      linkTarget = ({target}) => target, // given d in links, returns a node identifier string
+                      linkStroke = "#999", // link stroke color
+                      linkStrokeOpacity = 0.6, // link stroke opacity
+                      linkStrokeWidth = 1.5, // given d in links, returns a stroke width in pixels
+                      linkStrokeLinecap = "round", // link stroke linecap
+                      linkStrength,
+                      colors = d3.schemeTableau10, // an array of color strings, for the node groups
+                      width = 640, // outer width, in pixels
+                      height = 400, // outer height, in pixels
+                      invalidation, // when this promise resolves, stop the simulation,
+                      withDrag
+                    } = {}) {
   // Compute values.
   const N = d3.map(nodes, nodeId).map(intern);
   const LS = d3.map(links, linkSource).map(intern);
@@ -40,8 +40,8 @@ function ForceGraph({
   const W = typeof linkStrokeWidth !== "function" ? null : d3.map(links, linkStrokeWidth);
 
   // Replace the input nodes and links with mutable objects for the simulation.
-  nodes = d3.map(nodes, (_, i) => ({ id: N[i] }));
-  links = d3.map(links, (_, i) => ({ source: LS[i], target: LT[i] }));
+  nodes = d3.map(nodes, (_, i) => ({id: N[i]}));
+  links = d3.map(links, (_, i) => ({source: LS[i], target: LT[i]}));
 
   // Compute default domains.
   if (G && nodeGroups === undefined) nodeGroups = d3.sort(G);
@@ -51,7 +51,7 @@ function ForceGraph({
 
   // Construct the forces.
   const forceNode = d3.forceManyBody();
-  const forceLink = d3.forceLink(links).id(({ index: i }) => N[i]);
+  const forceLink = d3.forceLink(links).id(({index: i}) => N[i]);
   if (nodeStrength !== undefined) forceNode.strength(nodeStrength);
   if (linkStrength !== undefined) forceLink.strength(linkStrength);
 
@@ -77,23 +77,29 @@ function ForceGraph({
     .data(links)
     .join("line");
 
-  if (W) link.attr("stroke-width", ({ index: i }) => W[i]);
+  if (W) link.attr("stroke-width", ({index: i}) => W[i]);
 
   node = svg.append("g")
-    // .attr("fill", nodeFill)
-    .attr("stroke", nodeStroke)
     .attr("stroke-opacity", nodeStrokeOpacity)
-    .attr("stroke-width", nodeStrokeWidth)
-    .selectAll("circle")
+    .selectAll("g")
     .data(nodes)
-    .join("circle")
-    .attr("r", nodeRadius)
-    .attr("id", ({ index: i }) => `node-${i}`)
+    .join("g")
+    .append('text')
+    .text(({index: i}) => T[i])
+    .attr('font-size', 10)
+    .attr('stroke', 'black')
+    .attr('cursor', 'pointer')
 
-    withDrag && node.call(drag(simulation));
+    // .append('circle')
+    // .attr("r", nodeRadius)
+    .attr("id", ({index: i}) => `node-${i}`)
+
+
+
+  withDrag && node.call(drag(simulation));
 
   // if (G) node.attr("fill", ({index: i}) => color(G[i]));
-  if (T) node.append("title").text(({ index: i }) => T[i]);
+  if (T) node.append("title").text(({index: i}) => T[i]);
 
   // Handle invalidation.
   if (invalidation != null) invalidation.then(() => simulation.stop());
@@ -110,8 +116,8 @@ function ForceGraph({
       .attr("y2", d => d.target.y);
 
     node
-      .attr("cx", d => d.x)
-      .attr("cy", d => d.y);
+      .attr("x", d => d.x)
+      .attr("y", d => d.y);
   }
 
   function drag(simulation) {
@@ -139,9 +145,12 @@ function ForceGraph({
   }
 
   return Object.assign(svg.node(), {
-    scales: { color },
-    update({ links }) {
+    scales: {color},
+    update({links, nodeTitle}) {
       links = links.map(d => Object.assign({}, d));
+      const T = nodeTitle == null ? null : d3.map(nodes, nodeTitle);
+      node.text(({index: i}) =>  T[i])
+        .attr('stroke', 'black');
 
       link = link
         .data(links, d => [d.source, d.target])

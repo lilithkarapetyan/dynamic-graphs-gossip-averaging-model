@@ -23,16 +23,6 @@ function calculateIsolationPercentage(graph) {
   return 100 - arr.reduce((acc, item) => acc + item, 0) / arr.length * 100;
 }
 
-function calculateDegrees(graph) {
-  const arr = new Array(graph.vertices.length).fill(0).map((_, index) => ({ value: 0, index }));
-  for (let i = 0; i < graph.edges.length; i++) {
-    arr[graph.edges[i].s].value++;
-    arr[graph.edges[i].t].value++;
-  }
-
-  return arr;
-}
-
 function setupTimeline(snapshots) {
   const timelineDiv = document.getElementById('timeline');
 
@@ -63,54 +53,6 @@ function setupTimeline(snapshots) {
     timelineDiv.appendChild(div);
   })
 }
-// let diffGraph;
-// function drawGraphDiff() {
-//   document.getElementById("diff-result").innerHTML = '';
-//
-//   const firstSnapshotIndex = +document.getElementById("diff-graph-1").value || 0;
-//   const secondSnapshotIndex = +document.getElementById("diff-graph-2").value || 1;
-//   const width = window.innerWidth / 4;
-//   const height = window.innerHeight /4 ;
-//   const snapshot0 = storedSnapshots[firstSnapshotIndex];
-//   const snapshot1 = storedSnapshots[secondSnapshotIndex];
-//
-//   // console.log(snapshot0, snapshot1)
-//
-//   if(!diffGraph) {
-//     diffGraph = ForceGraph({
-//       nodes: snapshot0.vertices,
-//       links: [ ...snapshot0.edges, ...snapshot1.edges],
-//       containerId: 'diff-result'
-//     }, {
-//       nodeId: d => d,
-//       nodeTitle: d => d,
-//       width,
-//       height,
-//       nodeStrokeWidth: 0,
-//       linkStrokeWidth: 1,
-//       nodeRadius: 4,
-//     })
-//   }
-//
-//   const {link} = diffGraph.update({
-//     links: [ ...snapshot0.edges, ...snapshot1.edges]
-//   });
-//
-//   link.style("stroke", d => {
-//     const firstHas = snapshot0.edges.find(edge => edge.s === d.s.id && edge.t === d.t.id);
-//     const secondHas = snapshot1.edges.find(edge => edge.s === d.s.id && edge.t === d.t.id);
-//
-//     if(firstHas && !secondHas) {
-//       return "red";
-//     }
-//     if(!firstHas && secondHas){
-//       return "green"
-//     }
-//     return "black"
-//   })
-//
-//   document.getElementById("diff-result").appendChild(diffGraph);
-// }
 
 function drawGraph(newSnapshots, initialSnapshotIndex = 0) {
   let chart;
@@ -120,7 +62,6 @@ function drawGraph(newSnapshots, initialSnapshotIndex = 0) {
 
   if (snapshots) {
     storedSnapshots = snapshots;
-    // drawGraphDiff()
   }
 
   generateVertexSnapshots();
@@ -134,7 +75,7 @@ function drawGraph(newSnapshots, initialSnapshotIndex = 0) {
     containerId: 'scene'
   }, {
     nodeId: d => d,
-    nodeTitle: d => d,
+    // nodeTitle: d => vertexSnapshots[0][d.index].value.toFixed(2),
     width: window.innerWidth / 3 * 2,
     height: window.innerHeight / 3 * 2,
     nodeStrokeWidth: 3,
@@ -154,7 +95,11 @@ function drawGraph(newSnapshots, initialSnapshotIndex = 0) {
     }
 
     vertices = vertexSnapshots[snapshotIndex];
+        // console.log(vertexSnapshots[snapshotIndex])
     chart.update({
+      nodeTitle: d => {
+        return vertexSnapshots[snapshotIndex][d.index].value.toFixed(2)
+      } ,
       links: snapshots[snapshotIndex].edges.map(({s, t}) => ({source: s, target: t})),
     });
 
@@ -166,9 +111,9 @@ function drawGraph(newSnapshots, initialSnapshotIndex = 0) {
       document.getElementById(`node-${vertex.id}`).setAttribute('fill', (
         isUnicast ? (vertex.hasUnicastInfo ? '#fed683' : 'black') : (vertex.hasBroadcastInfo ? '#f6d1df' : 'black')
       ));
-      document.getElementById(`node-${vertex.id}`).setAttribute('stroke', (
-        isUnicast ? (!!vertex.unicastTimer ? '#67a2d8' : '#c4c4c4') : (!!vertex.broadcastTimer ? '#67a2d8' : '#c4c4c4')
-      ));
+      // document.getElementById(`node-${vertex.id}`).setAttribute('stroke', (
+        // isUnicast ? (!!vertex.unicastTimer ? '#67a2d8' : '#c4c4c4') : (!!vertex.broadcastTimer ? '#67a2d8' : '#c4c4c4')
+      // ));
     })
 
     snapshotIndex++;
@@ -284,48 +229,35 @@ function drawStats() {
       edges,
     }
   })
+  //
   // drawLineChart({
   //   data: transformedData,
-  //   containerId: 'linechart-isolated',
+  //   containerId: 'linechart-broadcast',
   //   xAxis: 'index',
-  //   yAxis: 'broadcastSingleAll',
-  //   title: 'Had broadcastInfo'
+  //   yAxis: 'broadcastSingle',
+  //   title: 'hasBroadcastInfo PMF'
   // })
   // drawLineChart({
   //   data: transformedData,
-  //   containerId: 'linechart-edges',
+  //   containerId: 'linechart-unicast',
   //   xAxis: 'index',
-  //   yAxis: 'unicastSingleAll',
-  //   title: 'Had unicastInfo'
+  //   yAxis: 'unicastSingle',
+  //   title: 'hasUnicastInfo PMF'
   // })
-  drawLineChart({
-    data: transformedData,
-    containerId: 'linechart-broadcast',
-    xAxis: 'index',
-    yAxis: 'broadcastSingle',
-    title: 'hasBroadcastInfo PMF'
-  })
-  drawLineChart({
-    data: transformedData,
-    containerId: 'linechart-unicast',
-    xAxis: 'index',
-    yAxis: 'unicastSingle',
-    title: 'hasUnicastInfo PMF'
-  })
-  drawLineChart({
-    data: transformedData,
-    containerId: 'linechart-broadcast',
-    xAxis: 'index',
-    yAxis: 'broadcast',
-    title: 'hasBroadCastInfo CDF'
-  })
-  drawLineChart({
-    data: transformedData,
-    containerId: 'linechart-unicast',
-    xAxis: 'index',
-    yAxis: 'unicast',
-    title: 'hasUnicastInfo CDF'
-  })
+  // drawLineChart({
+  //   data: transformedData,
+  //   containerId: 'linechart-broadcast',
+  //   xAxis: 'index',
+  //   yAxis: 'broadcast',
+  //   title: 'hasBroadCastInfo CDF'
+  // })
+  // drawLineChart({
+  //   data: transformedData,
+  //   containerId: 'linechart-unicast',
+  //   xAxis: 'index',
+  //   yAxis: 'unicast',
+  //   title: 'hasUnicastInfo CDF'
+  // })
 }
 
 function drawAllVertexOriginatorStats(allVerticesData) {
@@ -434,116 +366,75 @@ function generateVertexSnapshots(startIndex = 0) {
   }
 
   const infoSnapshots = storedSnapshots.map(snapshot => (
-    snapshot.vertices.map((vertex, index) => ({
-      id: vertex,
-      hasUnicastInfo: index === startIndex,
-      hasBroadcastInfo: index === startIndex,
-      broadcastTimer: 0,
-      unicastTimer: 0,
-    }))
+    snapshot.vertices.map((vertex, index) => {
+      return ({
+        id: vertex,
+        value: vertex,
+      })
+    })
   ));
 
+  console.log(JSON.parse(JSON.stringify(infoSnapshots)))
   storedSnapshots.forEach((snapshot, index) => {
     const vertices = infoSnapshots[index];
 
     if (infoSnapshots[index - 1]) {
       vertices.forEach((vertex, vertexIndex) => {
-        vertex.hasUnicastInfo = infoSnapshots[index - 1][vertexIndex].hasUnicastInfo;
-        vertex.unicastTimer = infoSnapshots[index - 1][vertexIndex].unicastTimer;
-        vertex.hasBroadcastInfo = infoSnapshots[index - 1][vertexIndex].hasBroadcastInfo;
-        vertex.broadcastTimer = infoSnapshots[index - 1][vertexIndex].broadcastTimer;
+        vertex.value = infoSnapshots[index - 1][vertexIndex].value;
 
-
-        if(vertex.broadcastTimer > maxInfoGivingTime) {
-          vertex.hasBroadcastInfo = false;
-        }
-        if(vertex.unicastTimer > maxInfoGivingTime) {
-          vertex.hasUnicastInfo = false;
-        }
+        // if(vertex.broadcastTimer > maxInfoGivingTime) {
+        //   vertex.hasBroadcastInfo = false;
+        // }
+        // if(vertex.unicastTimer > maxInfoGivingTime) {
+        //   vertex.hasUnicastInfo = false;
+        // }
       })
     }
 
+
     snapshot.edges.forEach(edge => {
-      if (
-        vertices[edge.s].hasBroadcastInfo &&
-        !vertices[edge.t].hasBroadcastInfo
-      ) {
-        infoQueue.push(edge.t);
-      }
-      if (
-        vertices[edge.t].hasBroadcastInfo &&
-        !vertices[edge.s].hasBroadcastInfo
-      ) {
-        infoQueue.push(edge.s);
-      }
-      if (
-        vertices[edge.t].hasUnicastInfo &&
-        !vertices[edge.s].hasUnicastInfo
-      ) {
-        if (!Object.values(infoMap).filter(value =>  value?.has(edge.s)).length) {
-          if(!infoMap[edge.t]){
-            infoMap[edge.t] = new Set();
-          }
-          if(infoMap[edge.t].size < castIndex) {
-            infoMap[edge.t].add(edge.s);
-          }
-        }
-      }
-      if (
-        vertices[edge.s].hasUnicastInfo &&
-        !vertices[edge.t].hasUnicastInfo
-      ) {
-        if (!Object.values(infoMap).filter(value => value.has(edge.t)).length) {
-          if(!infoMap[edge.s]){
-            infoMap[edge.s] = new Set();
-          }
-          if(infoMap[edge.s].size < castIndex) {
-            infoMap[edge.s].add(edge.t);
-          }
-        }
+      if (!values.includes(edge.s) && !infoMap[edge.t]) {
+          infoMap[edge.t] = edge.s;
       }
     });
 
-    infoQueue.forEach(vertexIndex => {
-      vertices[vertexIndex].hasBroadcastInfo = true;
-      vertices[vertexIndex].broadcastTimer = 0;
+    Object.entries(infoMap).forEach(([vertex, infoGiveVertex]) => {
+      const val = (vertices[vertex].value + vertices[infoGiveVertex].value) / 2;
+      vertices[infoGiveVertex].value = val;
+      vertices[vertex].value = val;
     });
-    Object.values(infoMap).forEach(vertexSet => vertexSet?.forEach(vertexIndex => {
-      vertices[vertexIndex].hasUnicastInfo = true;
-      vertices[vertexIndex].unicastTimer = 0;
-    }));
 
     snapshot.vertices.forEach(vertex => {
-      if (vertices[vertex].hasBroadcastInfo) {
-        vertices[vertex].broadcastTimer++;
-      }
+      // if (vertices[vertex].hasBroadcastInfo) {
+      //   vertices[vertex].broadcastTimer++;
+      // }
       if (vertices[vertex].hasUnicastInfo) {
         vertices[vertex].unicastTimer++;
       }
     });
 
-    const unicastVertices = vertices.reduce((acc, vertex) => acc + Number(!!vertex.hasUnicastInfo), 0);
-    const broadcastVertices = vertices.reduce((acc, vertex) => acc + Number(!!vertex.hasBroadcastInfo), 0);
+    // const unicastVertices = vertices.reduce((acc, vertex) => acc + Number(!!vertex.hasUnicastInfo), 0);
+    // const broadcastVertices = vertices.reduce((acc, vertex) => acc + Number(!!vertex.hasBroadcastInfo), 0);
 
-    const unicastVerticesAll = vertices.filter(vertex => vertex.unicastTimer !== 0).length;
-    const broadcastVerticesAll = vertices.filter(vertex => vertex.broadcastTimer !== 0).length;
+    // const unicastVerticesAll = vertices.filter(vertex => vertex.unicastTimer !== 0).length;
+    // const broadcastVerticesAll = vertices.filter(vertex => vertex.broadcastTimer !== 0).length;
 
-    if (unicastVerticesAll === vertices.length && document.getElementById('connectedRoundsUnicast').innerText === '-') {
-      document.getElementById('connectedRoundsUnicast').innerText = index;
-    }
-    if (broadcastVerticesAll === vertices.length && document.getElementById('connectedRoundsBroadcast').innerText === '-') {
-      document.getElementById('connectedRoundsBroadcast').innerText = index;
-    }
-    if (unicastVertices === vertices.length && document.getElementById('hadInfoRoundsUnicast').innerText === '-') {
-      document.getElementById('hadInfoRoundsUnicast').innerText = index + 1;
-    }
-    if (broadcastVertices === vertices.length && document.getElementById('hadInfoRoundsBroadcast').innerText === '-') {
-      document.getElementById('hadInfoRoundsBroadcast').innerText = index + 1;
-    }
+    // if (unicastVerticesAll === vertices.length && document.getElementById('connectedRoundsUnicast').innerText === '-') {
+    //   document.getElementById('connectedRoundsUnicast').innerText = index;
+    // }
+    // if (broadcastVerticesAll === vertices.length && document.getElementById('connectedRoundsBroadcast').innerText === '-') {
+    //   document.getElementById('connectedRoundsBroadcast').innerText = index;
+    // }
+    // if (unicastVertices === vertices.length && document.getElementById('hadInfoRoundsUnicast').innerText === '-') {
+    //   document.getElementById('hadInfoRoundsUnicast').innerText = index + 1;
+    // }
+    // if (broadcastVertices === vertices.length && document.getElementById('hadInfoRoundsBroadcast').innerText === '-') {
+    //   document.getElementById('hadInfoRoundsBroadcast').innerText = index + 1;
+    // }
 
-    distributionsData.info.push([distributionsData.info.length, broadcastVertices - distributionsData.prevBroadcastVertices, broadcastVertices, unicastVertices - distributionsData.prevUnicastVertices, unicastVertices, calculateIsolationPercentage(snapshot), snapshot.edges.length / Math.pow(snapshot.vertices.length, 2) * 100, broadcastVerticesAll, unicastVerticesAll]);
-    distributionsData.prevUnicastVertices = unicastVertices;
-    distributionsData.prevBroadcastVertices = broadcastVertices;
+    // distributionsData.info.push([distributionsData.info.length, broadcastVertices - distributionsData.prevBroadcastVertices, broadcastVertices, unicastVertices - distributionsData.prevUnicastVertices, unicastVertices, calculateIsolationPercentage(snapshot), snapshot.edges.length / Math.pow(snapshot.vertices.length, 2) * 100, broadcastVerticesAll, unicastVerticesAll]);
+    // distributionsData.prevUnicastVertices = unicastVertices;
+    // distributionsData.prevBroadcastVertices = broadcastVertices;
 
     infoMap = {};
     infoQueue = [];
@@ -704,14 +595,14 @@ function calculateRoundsFromAllVertices() {
       const broadcastVertices = vertices.reduce((acc, vertex) => acc + Number(!!vertex.hasBroadcastInfo), 0);
 
       const unicastVerticesAll = vertices.filter(vertex => vertex.unicastTimer !== 0).length;
-      const broadcastVerticesAll = vertices.filter(vertex => vertex.broadcastTimer !== 0).length;
+      // const broadcastVerticesAll = vertices.filter(vertex => vertex.broadcastTimer !== 0).length;
 
       if (unicastVerticesAll === vertices.length && result[originator].unicastInfo === -1) {
         result[originator].unicastInfo = index;
       }
-      if (broadcastVerticesAll === vertices.length && result[originator].broadcastInfo === -1) {
-        result[originator].broadcastInfo = index;
-      }
+      // if (broadcastVerticesAll === vertices.length && result[originator].broadcastInfo === -1) {
+      //   result[originator].broadcastInfo = index;
+      // }
       if (unicastVertices === vertices.length && result[originator].firstUnicastInfoWithTimer === -1) {
         result[originator].firstUnicastInfoWithTimer = index + 1;
       }
