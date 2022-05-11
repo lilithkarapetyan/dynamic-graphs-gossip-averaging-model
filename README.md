@@ -1,1 +1,1 @@
-# random-dynamic-graph-generator
+# dynamic-networks-gossip-averaging-model
