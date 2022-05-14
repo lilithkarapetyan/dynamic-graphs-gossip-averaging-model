@@ -3,22 +3,39 @@ import fs from 'fs';
 import path from "path";
 import { createSnapshots } from "../src";
 
-let csvStr = 'index,name,probability,kcast,infoGivingTimeout,originator,broadcastVerticesPMF,broadcastVerticesCDF,unicastVerticesPMF,unicastVerticesCDF,broadcastVerticesAll,unicastVerticesAll\n';
+let csvStr = 'name,vertexCount,snapshotCount,probability,faultProb,mean,faultyMean,convergeRounds,faultyConvergeRounds\n';
+function shuffle(array) {
+  let currentIndex = array.length,  randomIndex;
 
-function generateVertexSnapshots({ distributionsData, snapshotsData, originator, castIndex, maxInfoGivingTime }) {
+  while (currentIndex !== 0) {
+    randomIndex = Math.floor(Math.random() * currentIndex);
+    currentIndex--;
+    [array[currentIndex], array[randomIndex]] = [
+      array[randomIndex], array[currentIndex]];
+  }
+
+  return array;
+}
+
+
+function generateVertexSnapshots({ distributionsData, snapshotsData, faultProb }) {
   let infoMap = {};
-  let infoQueue = [];
+  let convergeRounds = -1;
+  let faultyConvergeRounds = -1;
+
+  let mean = -1;
+  let faultyMean = -1;
 
   const storedSnapshots = snapshotsData.snapshots;
 
   const infoSnapshots = storedSnapshots.map(snapshot => (
-    snapshot.vertices.map((vertex, index) => ({
-      id: vertex,
-      hasUnicastInfo: index === originator,
-      hasBroadcastInfo: index === originator,
-      broadcastTimer: 0,
-      unicastTimer: 0,
-    }))
+    snapshot.vertices.map((vertex, index) => {
+      return ({
+        id: vertex,
+        value: vertex,
+        faultyValue: vertex,
+      })
+    })
   ));
 
   storedSnapshots.forEach((snapshot, index) => {
@@ -26,135 +43,89 @@ function generateVertexSnapshots({ distributionsData, snapshotsData, originator,
 
     if (infoSnapshots[index - 1]) {
       vertices.forEach((vertex, vertexIndex) => {
-        vertex.hasUnicastInfo = infoSnapshots[index - 1][vertexIndex].hasUnicastInfo;
-        vertex.unicastTimer = infoSnapshots[index - 1][vertexIndex].unicastTimer;
-        vertex.hasBroadcastInfo = infoSnapshots[index - 1][vertexIndex].hasBroadcastInfo;
-        vertex.broadcastTimer = infoSnapshots[index - 1][vertexIndex].broadcastTimer;
-
-
-        if(vertex.broadcastTimer > maxInfoGivingTime) {
-          vertex.hasBroadcastInfo = false;
-        }
-        if(vertex.unicastTimer > maxInfoGivingTime) {
-          vertex.hasUnicastInfo = false;
-        }
+        vertex.value = infoSnapshots[index - 1][vertexIndex].value;
+        vertex.faultyValue = infoSnapshots[index - 1][vertexIndex].faultyValue;
       })
     }
+    else{
+      // distributionsData.info.push(JSON.parse(JSON.stringify(vertices)));
+      return
+    }
 
-    snapshot.edges.forEach(edge => {
-      if (
-        vertices[edge.s].hasBroadcastInfo &&
-        !vertices[edge.t].hasBroadcastInfo
-      ) {
-        infoQueue.push(edge.t);
-      }
-      if (
-        vertices[edge.t].hasBroadcastInfo &&
-        !vertices[edge.s].hasBroadcastInfo
-      ) {
-        infoQueue.push(edge.s);
-      }
-      if (
-        vertices[edge.t].hasUnicastInfo &&
-        !vertices[edge.s].hasUnicastInfo
-      ) {
-        if (!Object.values(infoMap).filter(value =>  value?.has(edge.s)).length) {
-          if(!infoMap[edge.t]){
-            infoMap[edge.t] = new Set();
-          }
-          if(infoMap[edge.t].size < castIndex) {
-            infoMap[edge.t].add(edge.s);
-          }
-        }
-      }
-      if (
-        vertices[edge.s].hasUnicastInfo &&
-        !vertices[edge.t].hasUnicastInfo
-      ) {
-        if (!Object.values(infoMap).filter(value => value.has(edge.t)).length) {
-          if(!infoMap[edge.s]){
-            infoMap[edge.s] = new Set();
-          }
-          if(infoMap[edge.s].size < castIndex) {
-            infoMap[edge.s].add(edge.t);
-          }
-        }
+    // distributionsData.info.push(JSON.parse(JSON.stringify(vertices)));
+
+    shuffle(snapshot.edges).forEach(edge => {
+      if (!Object.values(infoMap).includes(edge.s) && !infoMap[edge.t]) {
+        infoMap[edge.t] = edge.s;
       }
     });
 
-    infoQueue.forEach(vertexIndex => {
-      vertices[vertexIndex].hasBroadcastInfo = true;
-      vertices[vertexIndex].broadcastTimer = 0;
-    });
-    Object.values(infoMap).forEach(vertexSet => vertexSet?.forEach(vertexIndex => {
-      vertices[vertexIndex].hasUnicastInfo = true;
-      vertices[vertexIndex].unicastTimer = 0;
-    }));
+    Object.entries(infoMap).forEach(([vertex, infoGiveVertex]) => {
+      let val = (vertices[vertex].value + vertices[infoGiveVertex].value) / 2;
+      let faultyVal = (vertices[vertex].faultyValue + vertices[infoGiveVertex].faultyValue) / 2;
 
-    snapshot.vertices.forEach(vertex => {
-      if (vertices[vertex].hasBroadcastInfo) {
-        vertices[vertex].broadcastTimer++;
+      if(Math.random() < faultProb) {
+        faultyVal = 0;
       }
-      if (vertices[vertex].hasUnicastInfo) {
-        vertices[vertex].unicastTimer++;
-      }
+
+      vertices[infoGiveVertex].value = val;
+      vertices[vertex].value = val;
+      vertices[infoGiveVertex].faultyValue = faultyVal;
+      vertices[vertex].faultyValue = faultyVal;
     });
 
-    const unicastVertices = vertices.reduce((acc, vertex) => acc + Number(!!vertex.hasUnicastInfo), 0);
-    const broadcastVertices = vertices.reduce((acc, vertex) => acc + Number(!!vertex.hasBroadcastInfo), 0);
 
-    const unicastVerticesAll = vertices.filter(vertex => vertex.unicastTimer !== 0).length;
-    const broadcastVerticesAll = vertices.filter(vertex => vertex.broadcastTimer !== 0).length;
+    if(convergeRounds === -1) {
+      if(vertices.every( v => (Math.abs(v.value - vertices[0].value) < 0.001) )) {
+        convergeRounds = index;
+        mean = vertices[0].value.toFixed(2);
+      }
+    }
 
-    distributionsData.info.push([ index, snapshotsData.details.name, snapshotsData.details.probability, castIndex, maxInfoGivingTime, originator, broadcastVertices - distributionsData.prevBroadcastVertices, broadcastVertices, unicastVertices - distributionsData.prevUnicastVertices, unicastVertices, broadcastVerticesAll, unicastVerticesAll]);
-    distributionsData.prevUnicastVertices = unicastVertices;
-    distributionsData.prevBroadcastVertices = broadcastVertices;
+    if(faultyConvergeRounds === -1) {
+      if(vertices.every(v => (Math.abs(v.faultyValue - vertices[0].faultyValue) < 0.001))) {
+        faultyConvergeRounds = index
+        faultyMean = vertices[0].faultyValue.toFixed(2);
+      }
+    }
 
     infoMap = {};
-    infoQueue = [];
   })
+
+  // name, vertexCount, snapshots, edgeProb, faultProb , mean, faultyMean, converge, faultyConverge
+  const {name, vertexCount, probability, snapshotCount} = snapshotsData.details;
+  distributionsData.shortInfo.push([name, vertexCount, snapshotCount, probability, faultProb, mean, faultyMean, convergeRounds, faultyConvergeRounds])
 }
 
 const distributionsData = {
   info: [],
-  prevUnicastVertices: 0,
-  prevBroadcastVertices: 0,
+  shortInfo: [],
 };
 
-const VERTEX_COUNT = 100;
-const SNAPSHOT_COUNT = 50;
-
 const fileName = new Date().toLocaleString().replace(/\//g, ".");
-fs.writeFile(path.join('.', 'data', `data_${fileName}.csv`), csvStr + distributionsData.info.map(row => row.toString()).join('\n'), console.log);
+fs.writeFile(path.join('.', 'data', `data_${fileName}_summary.csv`), csvStr, console.log);
 
-// v2 * snap * 10 * GRAPH_COUNT
+const SNAPSHOT_COUNT = 700;
+const PROB = 1;
 
-// 10 * 2 * 25 * 10 * 100 ...
-for(let p = 0.001; p <= 0.5; p *= 2) {
-  for(let g = 0; g < 2; g++) {
-    const snapshotsData = createSnapshots({
-      vertexCount: VERTEX_COUNT,
-      snapshotCount: SNAPSHOT_COUNT,
-      probability: p
-    });
-    fs.writeFile(path.join('.', 'data', 'graphs', `${snapshotsData.details.name}.json`),  JSON.stringify(snapshotsData), console.log)
+for(let p = 0.0001; p <= 0.15; p *= 2) {
+  for(let v = 4; v < 257; v *= 2) {
+      const snapshotsData = createSnapshots({
+        vertexCount: v,
+        snapshotCount: SNAPSHOT_COUNT,
+        probability: PROB/v,
+      });
+      fs.writeFile(path.join('.', 'data', 'graphs', `${snapshotsData.details.name}.json`),  JSON.stringify(snapshotsData), console.log)
 
-    for(let t = 2; t < SNAPSHOT_COUNT / 2; t++) {
-      for (let k = 1; k < VERTEX_COUNT / 10; k++) {
-        for (let i = 0; i < VERTEX_COUNT; i++) {
-          distributionsData.prevBroadcastVertices = 0;
-          distributionsData.prevUnicastVertices = 0;
-          generateVertexSnapshots({
-            distributionsData,
-            snapshotsData,
-            originator: i,
-            castIndex: k,
-            maxInfoGivingTime: t,
-          });
-        }
+      for(let i = 0; i < 100; i++) {
+        generateVertexSnapshots({
+          distributionsData,
+          snapshotsData,
+          faultProb: p,
+        });
+
+        fs.appendFileSync(path.join('.', 'data', `data_${fileName}_summary.csv`), distributionsData.shortInfo.map(row => row.toString()).join('\n') + '\n')
+        distributionsData.shortInfo = [];
       }
-      fs.appendFileSync(path.join('.', 'data', `data_${fileName}.csv`), distributionsData.info.map(row => row.toString()).join('\n') + '\n');
-      distributionsData.info = [];
     }
-  }
 }

@@ -8,7 +8,7 @@ document.getElementById('download').onclick = () => {
 
 
 
-document.getElementById('maxInfoGivingTime').onchange = play;
+document.getElementById('infoLoosingProb').onchange = play;
 
 document.getElementById('generate').onclick = () => {
   setLoading(true);

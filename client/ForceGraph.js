@@ -88,6 +88,8 @@ function ForceGraph({
     .append('text')
     .text(({index: i}) => T[i])
     .attr('font-size', 12)
+    .style('-webkit-filter', 'drop-shadow( 0px 0px 2px rgba(255, 255, 255, 1))')
+    .style('filter', 'drop-shadow( 0px 0px 2px rgba(255, 255, 255, 1))')
     .attr('stroke', '#ff05fd')
     .attr('cursor', 'pointer')
     .attr("id", ({index: i}) => `node-${i}`)

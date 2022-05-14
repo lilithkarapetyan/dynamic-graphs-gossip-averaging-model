@@ -254,9 +254,9 @@ body {
     /* Use half of the width (120/2 = 60), to center the tooltip */
 }
 
-.info-container {
+.info-container, #distribution {
     display: grid;
-    grid-template-columns: auto;
+    grid-template-columns: auto auto;
 }
 
 .diff-container {

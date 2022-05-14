@@ -95,7 +95,7 @@ function drawGraph(newSnapshots, initialSnapshotIndex = 0) {
     vertices = vertexSnapshots[snapshotIndex];
     chart.update({
       nodeTitle: d => {
-        return vertexSnapshots[snapshotIndex][d.index].value.toFixed(2)
+        return vertexSnapshots[snapshotIndex][d.index].faultyValue.toFixed(2)
       } ,
       links: snapshots[snapshotIndex].edges.map(({s, t}) => ({source: s, target: t})),
     });
@@ -103,10 +103,12 @@ function drawGraph(newSnapshots, initialSnapshotIndex = 0) {
     document.getElementById("snapshotId").innerHTML = `${snapshotIndex}`;
     document.getElementById("isolationPercentage").innerText = `${calculateIsolationPercentage(snapshots[snapshotIndex]).toFixed(2)}%`;
 
+    document.getElementById('mean').innerText = (vertices.reduce((acc, v) => acc + v.value, 0)/vertices.length).toFixed(2)
+    document.getElementById('faultyMean').innerText = (vertices.reduce((acc, v) => acc + v.faultyValue, 0)/vertices.length).toFixed(2)
+
     drawStats();
     snapshotIndex++;
     lastSnapshotIndex = snapshotIndex;
-
   }
   a()
   drawInterval = setInterval(() => a(), 500)
@@ -115,6 +117,8 @@ function drawGraph(newSnapshots, initialSnapshotIndex = 0) {
 function clearGraph() {
   clearInterval(drawInterval);
   document.getElementById('scene').innerHTML = '';
+  document.getElementById('convergeRounds').innerHTML = '-';
+  document.getElementById('faultyConvergeRounds').innerHTML = '-';
 }
 
 function setLoading(isShowing) {
@@ -179,6 +183,19 @@ function pause() {
   playButton.classList.remove('playing');
 }
 
+function shuffle(array) {
+  let currentIndex = array.length,  randomIndex;
+
+  while (currentIndex !== 0) {
+    randomIndex = Math.floor(Math.random() * currentIndex);
+    currentIndex--;
+    [array[currentIndex], array[randomIndex]] = [
+      array[randomIndex], array[currentIndex]];
+  }
+
+  return array;
+}
+
 function drawStats() {
 
   const data = distributionsData.info[lastSnapshotIndex];
@@ -189,47 +206,13 @@ function drawStats() {
     containerId: 'distribution',
     xAxis: 'id',
     yAxis: 'value'
+  });
+  drawLineChart({
+    data: data,
+    containerId: 'distribution',
+    xAxis: 'id',
+    yAxis: 'faultyValue'
   })
-}
-
-function drawAllVertexOriginatorStats(allVerticesData) {
-  document.getElementById('linechart-all-vertices-broadcast').innerHTML = '';
-  document.getElementById('linechart-all-vertices-unicast').innerHTML = '';
-  document.getElementById('linechart-all-vertices-broadcast-first').innerHTML = '';
-  document.getElementById('linechart-all-vertices-unicast-first').innerHTML = '';
-
-  BarPlot({
-    data: allVerticesData,
-    containerId: 'linechart-all-vertices-broadcast',
-    xAxis: 'originator',
-    yAxis: 'broadcastInfo',
-    title: 'All vertices broadcast'
-  })
-
-  BarPlot({
-    data: allVerticesData,
-    containerId: 'linechart-all-vertices-unicast',
-    xAxis: 'originator',
-    yAxis: 'unicastInfo',
-    title: 'All vertices unicast'
-  })
-
-  BarPlot({
-    data: allVerticesData,
-    containerId: 'linechart-all-vertices-broadcast-first',
-    xAxis: 'originator',
-    yAxis: 'firstBroadcastInfoWithTimer',
-    title: 'All vertices broadcast with timer'
-  })
-
-  BarPlot({
-    data: allVerticesData,
-    containerId: 'linechart-all-vertices-unicast-first',
-    xAxis: 'originator',
-    yAxis: 'firstUnicastInfoWithTimer',
-    title: 'All vertices unicast with timer'
-  })
-
 }
 
 function playToggled() {
@@ -277,16 +260,14 @@ function generateNewGraph() {
 
 function generateVertexSnapshots(startIndex = 0) {
   let infoMap = {};
-  let infoQueue = [];
-  let maxInfoGivingTime = +localStorage.getItem('maxInfoGivingTime');
+  let infoLoosingProb = +localStorage.getItem('infoLoosingProb');
   distributionsData.info = [];
 
-
-  if(document.getElementById('maxInfoGivingTime').value) {
-    maxInfoGivingTime = +document.getElementById('maxInfoGivingTime').value;
-    localStorage.setItem('maxInfoGivingTime', `${maxInfoGivingTime}`);
+  if(document.getElementById('infoLoosingProb').value) {
+    infoLoosingProb = +document.getElementById('infoLoosingProb').value;
+    localStorage.setItem('infoLoosingProb', `${infoLoosingProb}`);
   }else {
-    document.getElementById('maxInfoGivingTime').value = maxInfoGivingTime;
+    document.getElementById('infoLoosingProb').value = infoLoosingProb;
   }
 
   const infoSnapshots = storedSnapshots.map(snapshot => (
@@ -294,6 +275,7 @@ function generateVertexSnapshots(startIndex = 0) {
       return ({
         id: vertex,
         value: vertex,
+        faultyValue: vertex,
       })
     })
   ));
@@ -305,6 +287,7 @@ function generateVertexSnapshots(startIndex = 0) {
     if (infoSnapshots[index - 1]) {
       vertices.forEach((vertex, vertexIndex) => {
         vertex.value = infoSnapshots[index - 1][vertexIndex].value;
+        vertex.faultyValue = infoSnapshots[index - 1][vertexIndex].faultyValue;
       })
     }
     else{
@@ -314,7 +297,7 @@ function generateVertexSnapshots(startIndex = 0) {
 
     distributionsData.info.push(JSON.parse(JSON.stringify(vertices)));
 
-    snapshot.edges.forEach(edge => {
+    shuffle(snapshot.edges).forEach(edge => {
       if (!Object.values(infoMap).includes(edge.s) && !infoMap[edge.t]) {
           infoMap[edge.t] = edge.s;
       }
@@ -322,24 +305,37 @@ function generateVertexSnapshots(startIndex = 0) {
 
     Object.entries(infoMap).forEach(([vertex, infoGiveVertex]) => {
       let val = (vertices[vertex].value + vertices[infoGiveVertex].value) / 2;
-      //
-      // if(Math.random() < 0.0001) {
-      //   val = 0;
-      // }
+      let faultyVal = (vertices[vertex].faultyValue + vertices[infoGiveVertex].faultyValue) / 2;
+
+      if(Math.random() < infoLoosingProb) {
+        faultyVal = 0;
+      }
 
       vertices[infoGiveVertex].value = val;
       vertices[vertex].value = val;
+      vertices[infoGiveVertex].faultyValue = faultyVal;
+      vertices[vertex].faultyValue = faultyVal;
     });
 
-    snapshot.vertices.forEach(vertex => {
-      if (vertices[vertex].hasUnicastInfo) {
-        vertices[vertex].unicastTimer++;
+
+
+    const convergeRounds = document.getElementById('convergeRounds');
+    if(convergeRounds.innerText === '-') {
+      if(vertices.every( v => (Math.abs(v.value - vertices[0].value) < 0.001) )) {
+        convergeRounds.innerText = index;
+        pause();
       }
-    });
+    }
 
+    const faultyConvergeRounds = document.getElementById('faultyConvergeRounds');
+    if(faultyConvergeRounds.innerText === '-') {
+      if(vertices.every(v => (Math.abs(v.faultyValue - vertices[0].faultyValue) < 0.001))) {
+        faultyConvergeRounds.innerText = index;
+        document.getElementById('faultyMeanLimit').innerText = vertices[0].faultyValue.toFixed(2);
+      }
+    }
 
     infoMap = {};
-    infoQueue = [];
   })
 
   vertexSnapshots = infoSnapshots;
